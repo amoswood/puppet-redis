@@ -12,14 +12,18 @@
         * [Class: redis::install](#class-redisinstall)
         * [Defined Type: redis::server](#defined-type-redisserver)
         * [Defined Type: redis::sentinel](#defined-type-redissentinel)
-4. [Limitations - OS compatibility, etc.](#limitations)
-5. [Contributing to the graphite module](#contributing)
+4. [Requirements](#requirements)
+5. [Limitations - OS compatibility, etc.](#limitations)
+6. [Contributing to the redis module](#contributing)
 
 ##Overview
 
 This module installs and makes basic configs for multiple redis instances on
-the same node. It installs redis from source. (http://redis.io/)
+the same node. It installs redis via REPO or from source. (http://redis.io/)
 It also can configure the monitoring server Sentinel.
+
+Github Master: [![Build Status](https://secure.travis-ci.org/echocat/puppet-redis.png?branch=master)](https://travis-ci.org/echocat/puppet-redis)
+
 
 ##Setup
 
@@ -45,6 +49,14 @@ Most of the time you will only need `redis_version`.
     redis_version     => '2.8.8',
     redis_build_dir   => '/opt',
     redis_install_dir => '/usr/bin'
+  }
+```
+To install redis from package use the following parameters.
+You will need `redis_version` and `redis_package`. 
+```puppet
+  class { 'redis::install':
+    redis_version  => '2.8.18-1.el6.remi',
+    redis_package  => true,
   }
 ```
 
@@ -79,7 +91,7 @@ node 'redis.my.domain' {
       redis_mempolicy => 'allkeys-lru',
       redis_timeout   => 0,
       redis_nr_dbs    => 2,
-      redis_loglevel  => 'info',
+      redis_loglevel  => 'warning',
       running         => true,
       enabled         => true
   }
@@ -202,6 +214,8 @@ same node. See the setup examples.
 #####`redis_name`
 
 Name of Redis instance. Default: call name of the function.
+The name is used to create the init script(s), which follows the pattern
+`redis-server_${redis_name}`
 
 #####`redis_memory`
 
@@ -216,9 +230,25 @@ Default is '127.0.0.1' (string). Listen IP of redis.
 
 Listen port of Redis. Default: 6379
 
+#####`redis_usesocket`
+
+To enable unixsocket options. Default: false
+
+#####`redis_socket`
+
+Unix socket to use. Default: /tmp/redis.sock
+
+#####`redis_socketperm`
+
+Permission of socket file. Default: 755
+
 #####`redis_mempolicy`
 
 Algorithm used to manage keys. See Redis docs for possible values. Default: allkeys-lru
+
+#####`redis_memsamples`
+
+Number of samples to use for LRU policies. Default: 3
 
 #####`redis_timeout`
 
@@ -236,6 +266,11 @@ Name of database dump file. Default: dump.rdb
 
 Default is '/var/lib' (string)
 Path for persistent data. Path is <redis_dir>/redis_<redis_name>/.
+
+#####`redis_pid_dir`
+
+Default is '/var/run' (string).
+Path for pidfile. Full pidfile path is <redis_pid_dir>/redis_<redis_name>.pid.
 
 #####`redis_log_dir`
 
@@ -261,6 +296,47 @@ Supply a password if you want authentication with Redis. Default: undef (string)
 #####`maxclients`
 
 Max clients of Redis instance. Default: undef (number)
+
+#####`appendfsync_on_rewrite`
+
+Configure the no-appendfsync-on-rewrite variable. Set to yes to enable the option. Defaults off. Default: false (boolean)
+
+#####`aof_rewrite_percentage`
+
+Configure the percentage size difference between the last aof filesize and the newest to trigger a rewrite. Default 100
+
+#####`aof_rewrite_minsize`
+
+Configure the minimum size in mb of the aof file to trigger size comparisons for rewriting. Default: 64
+
+#####`redis_appendfsync`
+
+Configure the value for when an fsync should happen. Values are either everysec, always, or no. Default: everysec
+
+#####`redis_append_enable`
+
+Enable or disable the appendonly file option. Default: false (boolean)
+
+#####`redis_enabled_append_file`
+
+Enable custom append file. Default: false (boolean)
+
+#####`redis_append_file`
+
+Define the path for the append file. Optional. Default: undef
+
+#####`save`
+
+Configure Redis save snapshotting. Example: [[900, 1], [300, 10]]. Default: []
+
+#####`force_rewrite`
+
+Boolean. Default: `false`
+
+Configure if the redis config is overwritten by puppet followed by a restart. 
+Since redis automatically rewrite their config since
+version 2.8 setting this to `true` will trigger a redis restart on each puppet
+run with redis 2.8 or later.
 
 ##### High Availability Options
 
@@ -299,6 +375,8 @@ See the setup examples.
 #####`sentinel_name`
 
 Name of Redis instance. Default: call name of the function.
+The name is used to create the init script(s), which follows the pattern
+`redis-sentinel_${sentinel_name}`
 
 #####`sentinel_port`
 
@@ -308,6 +386,12 @@ Listen port of Redis. Default: 6379
 
 Default is '/var/log' (string).
 Path for log. Full log path is `sentinel_log_dir`/sentinel_`sentinel_name`.log.
+
+#####`sentinel_pid_dir`
+
+Default is '/var/run' (string).
+Path for pid file. Full pid file path is `sentinel_pid_dir`/sentinel_`sentinel_name`.pid.
+
 
 #####`monitors`
 
@@ -338,6 +422,25 @@ Configure if Redis should be running or not. Default: true (boolean)
 
 Configure if Redis is started at boot. Default: true (boolean)
 
+#####`force_rewrite`
+
+Boolean. Default: `false`
+
+Configure if the sentinels config is overwritten by puppet followed by a
+sentinel restart. Since sentinels automatically rewrite their config since
+version 2.8 setting this to `true` will trigger a sentinel restart on each puppet
+run with redis 2.8 or later.
+
+##Requirements
+
+###Modules needed:
+
+stdlib by puppetlabs
+
+###Software versions needed:
+
+facter > 1.6.2
+puppet > 2.6.2
 
 ##Limitations
 
@@ -346,6 +449,11 @@ This module is tested on CentOS 6.5 and Debian 7 (Wheezy) and should also run wi
 * RHEL/CentOS/Scientific 6+
 * Debian 6+
 * Ubunutu 10.04 and newer
+* SLES 11 SP3
+
+Limitation on SLES:
+ * Installation from source is not tested
+ * Redis sentinel configuration/management is not tested
 
 ##Contributing
 

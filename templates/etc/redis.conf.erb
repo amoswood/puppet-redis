@@ -15,12 +15,12 @@
 # units are case insensitive so 1GB 1Gb 1gB are all the same.
 
 # By default Redis does not run as a daemon. Use 'yes' if you need it.
-# Note that Redis will write a pid file in /var/run/redis_<%= @redis_name %>.pid when daemonized.
+# Note that Redis will write a pid file in <%= @redis_pid_dir %>/redis_<%= @redis_name %>.pid when daemonized.
 daemonize yes
 
-# When running daemonized, Redis writes a pid file in /var/run/redis.pid by
+# When running daemonized, Redis writes a pid file in <%= @redis_pid_dir %>/redis.pid by
 # default. You can specify a custom pid file location here.
-pidfile /var/run/redis_<%= @redis_name %>.pid
+pidfile <%= @redis_pid_dir %>/redis_<%= @redis_name %>.pid
 
 # Accept connections on the specified port, default is 6379.
 # If port 0 is specified Redis will not listen on a TCP socket.
@@ -36,9 +36,13 @@ bind <%= @redis_ip %>
 # on a unix socket when not specified.
 #
 # unixsocket /var/run/redis/redis.sock
+<% if @redis_usesocket -%>
+unixsocket <%= @redis_socket %>
+unixsocketperm <%= @redis_socketperm %>
+<% end -%>
 
 # Close the connection after a client is idle for N seconds (0 to disable)
-timeout 0
+timeout <%= @redis_timeout %>
 
 # Set server verbosity to 'debug'
 # it can be one of:
@@ -84,9 +88,9 @@ databases <%= @redis_nr_dbs %>
 #
 #   Note: you can disable saving at all commenting all the "save" lines.
 
-#save 900 1
-#save 300 10
-#save 60 10000
+<% @save.each do |seconds, changes| %>
+  save <%= seconds %> <%= changes %>
+<% end %>
 
 # Compress string objects using LZF when dump .rdb databases?
 # For default that's set to 'yes' as it's almost always a win.
@@ -154,7 +158,9 @@ slave-serve-stale-data <% if @slave_serve_stale_data -%>yes<% else -%>no<% end -
 # security of read only slaves using 'rename-command' to shadow all the
 # administrative / dangerous commands.
 #slave-read-only yes
+<% if @redis_2_6_or_greater -%>
 slave-read-only <% if @slave_read_only -%>yes<% else -%>no<% end -%>
+<% end -%>
 
 # Slaves send PINGs to server in a predefined interval. It's possible to change
 # this interval with the repl_ping_slave_period option. The default value is 10
@@ -282,6 +288,7 @@ maxmemory-policy <%= @redis_mempolicy %>
 # using the following configuration directive.
 #
 # maxmemory-samples 3
+maxmemory-samples <%= @redis_memsamples %>
 
 ############################## APPEND ONLY MODE ###############################
 
@@ -301,10 +308,14 @@ maxmemory-policy <%= @redis_mempolicy %>
 # IMPORTANT: Check the BGREWRITEAOF to check how to rewrite the append
 # log file in background when it gets too big.
 
-appendonly no
+#appendonly no
+
+appendonly <% if @redis_append_enable -%> yes <% else -%> no <% end -%>
 
 # The name of the append only file (default: "appendonly.aof")
 # appendfilename appendonly.aof
+
+<% if @redis_enable_append_file -%>appendfilename <%= @redis_append_file %><% end -%>
 
 # The fsync() call tells the Operating System to actually write data on disk
 # instead to wait for more data in the output buffer. Some OS will really flush
@@ -326,9 +337,7 @@ appendonly no
 #
 # If unsure, use "everysec".
 
-# appendfsync always
-appendfsync <%= @redis_appedfsync %>
-# appendfsync no
+appendfsync <%= @redis_appendfsync %>
 
 # When the AOF fsync policy is set to always or everysec, and a background
 # saving process (a background save or AOF log background rewriting) is
@@ -348,7 +357,7 @@ appendfsync <%= @redis_appedfsync %>
 #
 # If you have latency problems turn this to "yes". Otherwise leave it as
 # "no" that is the safest pick from the point of view of durability.
-no-appendfsync-on-rewrite no
+no-appendfsync-on-rewrite <% if @appendfsync_on_rewrite -%> yes <% else -%>no<% end -%>
 
 # Automatic rewrite of the append only file.
 # Redis is able to automatically rewrite the log file implicitly calling
@@ -367,8 +376,10 @@ no-appendfsync-on-rewrite no
 # Specify a precentage of zero in order to disable the automatic AOF
 # rewrite feature.
 
-auto-aof-rewrite-percentage 100
-auto-aof-rewrite-min-size 64mb
+
+
+auto-aof-rewrite-percentage <%= @aof_rewrite_percentage %>
+auto-aof-rewrite-min-size <%= @aof_rewrite_minsize %>
 
 ################################ LUA SCRIPTING  ###############################
 
@@ -417,8 +428,13 @@ slowlog-max-len 1024
 # Hashes are encoded using a memory efficient data structure when they have a
 # small number of entries, and the biggest entry does not exceed a given
 # threshold. These thresholds can be configured using the following directives.
+<% if @redis_2_6_or_greater -%>
 hash-max-ziplist-entries 512
 hash-max-ziplist-value 64
+<% else -%>
+hash-max-zipmap-entries 512
+hash-max-zipmap-value 64
+<% end -%>
 
 # Similarly to hashes, small lists are also encoded in a special way in order
 # to save a lot of space. The special representation is only used when
